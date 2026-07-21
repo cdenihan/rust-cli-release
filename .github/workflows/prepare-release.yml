@@ -50,14 +50,14 @@ jobs:
         if: env.DEPENDENCY_TOKEN != ''
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.1.2
+          ref: v1.2.0
           token: ${{ secrets.dependency_token }}
           path: .rust-cli-release
       - uses: actions/checkout@v7.0.0
         if: env.DEPENDENCY_TOKEN == ''
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.1.2
+          ref: v1.2.0
           path: .rust-cli-release
 
       - name: Resolve and reserve release version
