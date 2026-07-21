@@ -96,7 +96,7 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.0.1
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.0
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
@@ -106,7 +106,9 @@ jobs:
       - name: Add installer checksums
         shell: bash
         run: |
+          printf '%s\n' '${{ inputs.version }}' > dist/VERSION
           chmod 0755 dist/install.sh
+          (cd dist && openssl dgst -sha256 -r VERSION > VERSION.sha256)
           (cd dist && openssl dgst -sha256 -r install.sh > install.sh.sha256)
           (cd dist && openssl dgst -sha256 -r install.ps1 > install.ps1.sha256)
       - name: Publish release

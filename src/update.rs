@@ -86,6 +86,9 @@ fn update_executable(
 
     validate_executable_name(spec, executable)?;
     validate_release_base(release_base)?;
+    if requested_version != "latest" && versions_equal(requested_version, spec.current_version) {
+        return Ok(current_summary(spec, executable));
+    }
     let install_directory = executable
         .parent()
         .ok_or_else(|| Error::Configuration("executable path has no parent directory".into()))?;
@@ -96,6 +99,18 @@ fn update_executable(
     let installer = temporary.path().join(installer_name);
     let checksum = temporary.path().join(format!("{installer_name}.sha256"));
     let download_base = format!("{release_base}/latest/download");
+
+    if requested_version == "latest" {
+        let latest_version_file = temporary.path().join("VERSION");
+        if download_file(&format!("{download_base}/VERSION"), &latest_version_file).is_ok() {
+            let latest_version = fs::read_to_string(&latest_version_file)?;
+            let latest_version = latest_version.trim();
+            validate_requested_version(latest_version)?;
+            if versions_equal(latest_version, spec.current_version) {
+                return Ok(current_summary(spec, executable));
+            }
+        }
+    }
 
     download_file(&format!("{download_base}/{installer_name}"), &installer)?;
     download_file(
@@ -158,6 +173,19 @@ fn update_executable(
             executable: executable.to_path_buf(),
             status: "updated",
         })
+    }
+}
+
+fn versions_equal(left: &str, right: &str) -> bool {
+    left.strip_prefix('v').unwrap_or(left) == right.strip_prefix('v').unwrap_or(right)
+}
+
+fn current_summary(spec: &ReleaseSpec, executable: &Path) -> UpdateSummary {
+    UpdateSummary {
+        previous_version: spec.current_version.into(),
+        installed_version: Some(spec.current_version.into()),
+        executable: executable.to_path_buf(),
+        status: "current",
     }
 }
 
@@ -518,6 +546,49 @@ mod tests {
             compare_versions("2026.07.16.2", "2026.07.16.10"),
             Some(Ordering::Less)
         );
+    }
+
+    #[test]
+    fn exact_current_version_is_a_no_op() {
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join(if cfg!(windows) {
+            "fixture.exe"
+        } else {
+            "fixture"
+        });
+        fs::write(&executable, b"not executed").unwrap();
+        let summary = update_executable(
+            &SPEC,
+            &executable,
+            SPEC.repository,
+            "https://example.invalid/releases",
+            "v1.0.0",
+            true,
+        )
+        .unwrap();
+        assert_eq!(summary.status, "current");
+        assert_eq!(summary.installed_version.as_deref(), Some("1.0.0"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn latest_marker_skips_installer_when_current() {
+        let directory = tempfile::tempdir().unwrap();
+        let release = directory.path().join("release/latest/download");
+        fs::create_dir_all(&release).unwrap();
+        fs::write(release.join("VERSION"), "1.0.0\n").unwrap();
+        let executable = directory.path().join("fixture");
+        fs::write(&executable, b"not executed").unwrap();
+        let summary = update_executable(
+            &SPEC,
+            &executable,
+            SPEC.repository,
+            &format!("file://{}", directory.path().join("release").display()),
+            "latest",
+            true,
+        )
+        .unwrap();
+        assert_eq!(summary.status, "current");
     }
 
     #[test]

@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v7.0.0
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.0.1
+          ref: v1.1.0
           token: ${{ secrets.dependency_token }}
           path: .rust-cli-release
 

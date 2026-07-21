@@ -12,10 +12,10 @@ same crate provides runtime and build-script helpers:
 
 ```toml
 [dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.0.1" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.1.0" }
 
 [build-dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.0.1" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.1.0" }
 ```
 
 For a calendar-versioned application, `build.rs` becomes:
@@ -57,7 +57,7 @@ tag used by Cargo and pass the private dependency token explicitly.
 ```yaml
 jobs:
   ci:
-    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.0.1
+    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.1.0
     with:
       binary-name: my-cli
       display-name: My CLI
