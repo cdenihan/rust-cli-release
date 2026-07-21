@@ -28,12 +28,12 @@ jobs:
     name: Quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Authenticate private Cargo dependencies
-        if: secrets.dependency_token != ''
-        env:
-          DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
+        if: env.DEPENDENCY_TOKEN != ''
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -43,8 +43,8 @@ jobs:
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-targets
       - name: Remove private dependency credential
-        if: always() && secrets.dependency_token != ''
-        run: git config --global --unset-all url."https://x-access-token:${{ secrets.dependency_token }}@github.com/".insteadOf || true
+        if: always() && env.DEPENDENCY_TOKEN != ''
+        run: git config --global --unset-all url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf || true
 
   security:
     name: RustSec audit
@@ -64,21 +64,21 @@ jobs:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    env:
+      DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Authenticate private Cargo dependencies
-        if: secrets.dependency_token != ''
+        if: env.DEPENDENCY_TOKEN != ''
         shell: bash
-        env:
-          DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.9.1
       - run: cargo test --locked --all-targets
       - name: Remove private dependency credential
-        if: always() && secrets.dependency_token != ''
+        if: always() && env.DEPENDENCY_TOKEN != ''
         shell: bash
-        run: git config --global --unset-all url."https://x-access-token:${{ secrets.dependency_token }}@github.com/".insteadOf || true
+        run: git config --global --unset-all url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf || true
 
   installers:
     if: inputs.run-installer-tests
@@ -131,12 +131,12 @@ jobs:
           - aarch64-apple-darwin
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
       - uses: actions/checkout@v7.0.0
       - name: Authenticate private Cargo dependencies
-        if: secrets.dependency_token != ''
-        env:
-          DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
+        if: env.DEPENDENCY_TOKEN != ''
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -146,5 +146,5 @@ jobs:
           key: ${{ matrix.target }}
       - run: cargo check --locked --target ${{ matrix.target }}
       - name: Remove private dependency credential
-        if: always() && secrets.dependency_token != ''
-        run: git config --global --unset-all url."https://x-access-token:${{ secrets.dependency_token }}@github.com/".insteadOf || true
+        if: always() && env.DEPENDENCY_TOKEN != ''
+        run: git config --global --unset-all url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf || true

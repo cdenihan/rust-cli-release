@@ -20,6 +20,8 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.target }}
+    env:
+      DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     strategy:
       fail-fast: false
       matrix:
@@ -38,10 +40,8 @@ jobs:
         with:
           ref: ${{ inputs.commit }}
       - name: Authenticate private Cargo dependencies
-        if: secrets.dependency_token != ''
+        if: env.DEPENDENCY_TOKEN != ''
         shell: bash
-        env:
-          DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -81,9 +81,9 @@ jobs:
           path: dist/*
           if-no-files-found: error
       - name: Remove private dependency credential
-        if: always() && secrets.dependency_token != ''
+        if: always() && env.DEPENDENCY_TOKEN != ''
         shell: bash
-        run: git config --global --unset-all url."https://x-access-token:${{ secrets.dependency_token }}@github.com/".insteadOf || true
+        run: git config --global --unset-all url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf || true
 
   publish:
     name: Publish GitHub release
