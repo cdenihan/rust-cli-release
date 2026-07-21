@@ -1,6 +1,6 @@
 # rust-cli-release
 
-`rust-cli-release` is a private distribution kit for Rust command-line
+`rust-cli-release` is an open-source distribution kit for Rust command-line
 applications. It centralizes checksum-verified self-update, branded installers,
 cross-platform CI, calendar or manifest releases, native artifacts, and GitHub
 Release publication while each consumer owns its product commands.
@@ -51,8 +51,9 @@ See `examples/minimal.rs` for a complete Clap command.
 
 ## Reusable workflows
 
-Private consumer repositories need three thin callers. Pin the same immutable
-tag used by Cargo and pass the private dependency token explicitly.
+Consumer repositories need three thin callers. Pin the same immutable tag used
+by Cargo. Public consumers do not need credentials; the optional token remains
+available for private forks or private Git dependencies.
 
 ```yaml
 jobs:
@@ -77,20 +78,27 @@ The publish caller exposes the dispatch inputs and passes them unchanged to
 Linux, and musl Linux artifacts, adds SHA-256 files and branded installers, and
 publishes the release only after verifying tag, commit, and compiled version.
 
-## Private access and credentials
+## Optional private access
 
-In this repository's Settings > Actions > General > Access, enable access from
-other private repositories owned by `cdenihan`.
+No token is needed to consume this public repository through Cargo, GitHub
+Actions, or Dependabot. The `dependency_token` workflow secret is optional and
+all credential setup steps are skipped when it is unset.
 
-Create a fine-grained personal access token restricted to this repository with
-read-only Contents permission. Add it to every consumer as both an Actions
-secret and a Dependabot secret named `RUST_CLI_RELEASE_TOKEN`. The workflow uses
-it only while Cargo fetches the private Git dependency and removes the temporary
-Git URL rewrite after each job.
+For a private fork or other private Git dependency, create a fine-grained token
+restricted to the required repositories with read-only Contents permission.
+Store it in the consumer as an Actions secret named
+`RUST_CLI_RELEASE_TOKEN` and pass it as `dependency_token`. Temporary Git URL
+credentials are removed after each job. If Dependabot needs the same private
+access, store the token separately as a Dependabot secret and configure a `git`
+registry in the consumer's Dependabot file.
+
+Private reusable-workflow hosts must also enable access for their intended
+private consumers in Settings > Actions > General > Access. GitHub does not
+allow public repositories to call workflows stored in private repositories.
 
 GitHub Packages does not provide a Cargo registry, so v1 deliberately uses a
-tagged private Git dependency. Local development uses the developer's normal
-GitHub Git credential.
+tagged Git dependency. Private forks use the optional credential path described
+above; public consumers fetch the tag anonymously.
 
 ## Updating consumers
 
