@@ -50,14 +50,14 @@ jobs:
         if: env.DEPENDENCY_TOKEN != ''
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.2.0
+          ref: v1.3.0
           token: ${{ secrets.dependency_token }}
           path: .rust-cli-release
       - uses: actions/checkout@v7.0.0
         if: env.DEPENDENCY_TOKEN == ''
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.2.0
+          ref: v1.3.0
           path: .rust-cli-release
 
       - name: Resolve and reserve release version
@@ -152,7 +152,10 @@ jobs:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
-          gh workflow run "$PUBLISH_WORKFLOW" --ref "$RELEASE_TAG" \
+          # Dispatch from the default branch so trusted release caches are reusable
+          # across tags. The publish workflow still checks out and verifies the
+          # exact reserved commit before any cache access or build occurs.
+          gh workflow run "$PUBLISH_WORKFLOW" --ref main \
             -f "version=${RELEASE_VERSION}" \
             -f "tag=${RELEASE_TAG}" \
             -f "commit=${RELEASE_COMMIT}"

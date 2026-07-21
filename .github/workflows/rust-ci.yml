@@ -39,6 +39,13 @@ jobs:
         with:
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2.9.1
+        with:
+          prefix-key: v1-rust
+          shared-key: ci-${{ github.repository_id }}-quality
+          key: ${{ runner.os }}
+          cache-bin: false
+          cache-on-failure: false
+          save-if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-targets
@@ -74,6 +81,13 @@ jobs:
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.9.1
+        with:
+          prefix-key: v1-rust
+          shared-key: ci-${{ github.repository_id }}-native
+          key: ${{ runner.os }}
+          cache-bin: false
+          cache-on-failure: false
+          save-if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - run: cargo test --locked --all-targets
       - name: Remove private dependency credential
         if: always() && env.DEPENDENCY_TOKEN != ''
@@ -90,7 +104,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.2.0
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.3.0
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
@@ -147,7 +161,12 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2.9.1
         with:
+          prefix-key: v1-rust
+          shared-key: ci-${{ github.repository_id }}-cross-check
           key: ${{ matrix.target }}
+          cache-bin: false
+          cache-on-failure: false
+          save-if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - run: cargo check --locked --target ${{ matrix.target }}
       - name: Remove private dependency credential
         if: always() && env.DEPENDENCY_TOKEN != ''

@@ -12,10 +12,10 @@ same crate provides runtime and build-script helpers:
 
 ```toml
 [dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.2.0" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.0" }
 
 [build-dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.2.0" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.0" }
 ```
 
 For a calendar-versioned application, `build.rs` becomes:
@@ -58,7 +58,7 @@ available for private forks or private Git dependencies.
 ```yaml
 jobs:
   ci:
-    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.2.0
+    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.3.0
     with:
       binary-name: my-cli
       display-name: My CLI
@@ -77,6 +77,14 @@ The publish caller exposes the dispatch inputs and passes them unchanged to
 `publish-release.yml`. The reusable workflow builds eight Windows, macOS, GNU
 Linux, and musl Linux artifacts, adds SHA-256 files and branded installers, and
 publishes the release only after verifying tag, commit, and compiled version.
+
+Rust build caches use separate trust domains. Pull requests may restore the
+read-only cache produced by the default branch, but cannot save cache entries.
+Release builds use a distinct cache namespace and can access it only after a
+preflight job verifies a default-branch dispatch, the immutable release tag,
+and the exact tagged commit. Cached Cargo executables and failed builds are
+never saved. Release dispatches run from the default branch so this trusted
+cache remains reusable across version tags.
 
 Generated POSIX installers use musl binaries by default on Linux to avoid a
 dependency on the host's glibc version. Consumers that specifically need the
@@ -119,6 +127,6 @@ and workflow behavior.
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo test --locked --all-targets
-python3 -m unittest tests/render-installers.py tests/release-version.py
+python3 -m unittest tests/render-installers.py tests/release-version.py tests/workflow-cache.py
 sh tests/install-sh.sh
 ```
