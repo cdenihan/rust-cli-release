@@ -31,7 +31,7 @@ jobs:
     env:
       DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Authenticate private Cargo dependencies
         if: env.DEPENDENCY_TOKEN != ''
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -74,7 +74,7 @@ jobs:
     env:
       DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Authenticate private Cargo dependencies
         if: env.DEPENDENCY_TOKEN != ''
         shell: bash
@@ -152,7 +152,7 @@ jobs:
     env:
       DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Authenticate private Cargo dependencies
         if: env.DEPENDENCY_TOKEN != ''
         run: git config --global url."https://x-access-token:${DEPENDENCY_TOKEN}@github.com/".insteadOf "https://github.com/"
