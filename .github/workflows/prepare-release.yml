@@ -29,7 +29,7 @@ on:
         type: string
     secrets:
       dependency_token:
-        required: true
+        required: false
 
 permissions:
   actions: write
@@ -45,10 +45,17 @@ jobs:
           ref: main
           fetch-depth: 0
       - uses: actions/checkout@v7.0.0
+        if: secrets.dependency_token != ''
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.1.0
+          ref: v1.1.1
           token: ${{ secrets.dependency_token }}
+          path: .rust-cli-release
+      - uses: actions/checkout@v7.0.0
+        if: secrets.dependency_token == ''
+        with:
+          repository: cdenihan/rust-cli-release
+          ref: v1.1.1
           path: .rust-cli-release
 
       - name: Resolve and reserve release version

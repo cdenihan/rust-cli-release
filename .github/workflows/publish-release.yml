@@ -12,7 +12,7 @@ on:
       environment-prefix: { required: true, type: string }
     secrets:
       dependency_token:
-        required: true
+        required: false
 
 permissions:
   contents: write
@@ -38,6 +38,7 @@ jobs:
         with:
           ref: ${{ inputs.commit }}
       - name: Authenticate private Cargo dependencies
+        if: secrets.dependency_token != ''
         shell: bash
         env:
           DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
@@ -80,7 +81,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
       - name: Remove private dependency credential
-        if: always()
+        if: always() && secrets.dependency_token != ''
         shell: bash
         run: git config --global --unset-all url."https://x-access-token:${{ secrets.dependency_token }}@github.com/".insteadOf || true
 
@@ -96,7 +97,7 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.0
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.1
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
