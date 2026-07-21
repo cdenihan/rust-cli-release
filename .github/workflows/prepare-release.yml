@@ -93,9 +93,11 @@ jobs:
               ;;
             *) echo "Unsupported version mode: $VERSION_MODE" >&2; exit 1 ;;
           esac
-          echo "version=${release_version}" >> "$GITHUB_OUTPUT"
-          echo "tag=v${release_version}" >> "$GITHUB_OUTPUT"
-          echo "source_commit=${source_commit}" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${release_version}"
+            echo "tag=v${release_version}"
+            echo "source_commit=${source_commit}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update calendar version
         if: inputs.version-mode == 'calendar'
