@@ -97,7 +97,7 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.1
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.2
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}

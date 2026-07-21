@@ -90,7 +90,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.1
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.2
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
@@ -102,8 +102,12 @@ jobs:
         shell: sh
         run: |
           sh -n "$RUNNER_TEMP/installers/install.sh"
-          grep -F '${{ inputs.binary-name }}-linux-x86_64' "$RUNNER_TEMP/installers/install.sh"
-          grep -F '${{ inputs.environment-prefix }}_RELEASE_BASE_URL' "$RUNNER_TEMP/installers/install.sh"
+          RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=1
+          export RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY
+          . "$RUNNER_TEMP/installers/install.sh"
+          test "$PROGRAM" = '${{ inputs.binary-name }}'
+          test "$ENV_PREFIX" = '${{ inputs.environment-prefix }}'
+          test "$(artifact_for Linux x86_64 gnu)" = '${{ inputs.binary-name }}-linux-x86_64'
       - name: Validate PowerShell installer
         if: runner.os == 'Windows'
         shell: pwsh
