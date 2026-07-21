@@ -18,8 +18,38 @@ permissions:
   contents: write
 
 jobs:
+  verify-release:
+    name: Verify trusted release inputs
+    runs-on: ubuntu-latest
+    outputs:
+      cache-write: ${{ steps.verify.outputs.cache-write }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+      - name: Verify tag, version, commit, and dispatch ref
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]
+          default_branch="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.default_branch')"
+          [[ "$GITHUB_REF" == "refs/heads/${default_branch}" ]]
+          [[ "$RELEASE_TAG" == "v${RELEASE_VERSION}" ]]
+          tagged_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
+          [[ "$tagged_commit" == "$RELEASE_COMMIT" ]]
+          git fetch origin "$default_branch"
+          git merge-base --is-ancestor "$RELEASE_COMMIT" "origin/${default_branch}"
+          echo 'cache-write=true' >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.target }}
+    needs: verify-release
     env:
       DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     strategy:
@@ -53,7 +83,12 @@ jobs:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2.9.1
         with:
-          key: release-${{ matrix.target }}
+          prefix-key: v1-rust
+          shared-key: release-${{ github.repository_id }}
+          key: ${{ matrix.target }}
+          cache-bin: false
+          cache-on-failure: false
+          save-if: ${{ needs.verify-release.outputs.cache-write == 'true' }}
       - name: Build
         run: cargo build --locked --release --target ${{ matrix.target }} --package ${{ inputs.cargo-package }}
       - name: Verify compiled release version
@@ -97,7 +132,7 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.2.0
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.3.0
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
