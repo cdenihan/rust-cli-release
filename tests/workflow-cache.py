@@ -29,7 +29,10 @@ class WorkflowCacheTests(unittest.TestCase):
         self.assertLess(verify_position, build_position)
         self.assertLess(build_position, cache_position)
         self.assertIn("needs: verify-release", publish)
-        self.assertIn("shared-key: release-${{ github.repository_id }}", publish)
+        self.assertIn(
+            "shared-key: release-${{ github.repository_id }}-${{ matrix.target }}",
+            publish,
+        )
         self.assertIn("save-if: ${{ needs.verify-release.outputs.cache-write == 'true' }}", publish)
         self.assertIn('[[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]', publish)
         self.assertIn('[[ "$GITHUB_REF" == "refs/heads/${default_branch}" ]]', publish)
@@ -37,6 +40,21 @@ class WorkflowCacheTests(unittest.TestCase):
         self.assertIn('git merge-base --is-ancestor "$RELEASE_COMMIT"', publish)
         self.assertNotIn("shared-key: ci-", publish)
         self.assertIn('gh workflow run "$PUBLISH_WORKFLOW" --ref main', prepare)
+
+    def test_matrix_target_is_part_of_the_shared_cache_key(self):
+        reusable_ci = (ROOT / ".github/workflows/rust-ci.yml").read_text()
+        publish = (ROOT / ".github/workflows/publish-release.yml").read_text()
+
+        self.assertIn(
+            "shared-key: ci-${{ github.repository_id }}-cross-check-${{ matrix.target }}",
+            reusable_ci,
+        )
+        self.assertIn(
+            "shared-key: release-${{ github.repository_id }}-${{ matrix.target }}",
+            publish,
+        )
+        self.assertNotIn("key: ${{ matrix.target }}", reusable_ci)
+        self.assertNotIn("key: ${{ matrix.target }}", publish)
 
     def test_cached_executables_and_failed_builds_are_never_saved(self):
         workflow_paths = [
