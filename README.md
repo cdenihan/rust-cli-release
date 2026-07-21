@@ -12,10 +12,10 @@ same crate provides runtime and build-script helpers:
 
 ```toml
 [dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.0" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.1" }
 
 [build-dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.0" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.1" }
 ```
 
 For a calendar-versioned application, `build.rs` becomes:
@@ -58,7 +58,7 @@ available for private forks or private Git dependencies.
 ```yaml
 jobs:
   ci:
-    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.3.0
+    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.3.1
     with:
       binary-name: my-cli
       display-name: My CLI
@@ -83,8 +83,9 @@ read-only cache produced by the default branch, but cannot save cache entries.
 Release builds use a distinct cache namespace and can access it only after a
 preflight job verifies a default-branch dispatch, the immutable release tag,
 and the exact tagged commit. Cached Cargo executables and failed builds are
-never saved. Release dispatches run from the default branch so this trusted
-cache remains reusable across version tags.
+never saved. Matrix targets are encoded directly in their shared cache keys so
+different architectures cannot collide. Release dispatches run from the
+default branch so this trusted cache remains reusable across version tags.
 
 Generated POSIX installers use musl binaries by default on Linux to avoid a
 dependency on the host's glibc version. Consumers that specifically need the

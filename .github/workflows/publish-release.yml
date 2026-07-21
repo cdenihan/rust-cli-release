@@ -84,8 +84,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.1
         with:
           prefix-key: v1-rust
-          shared-key: release-${{ github.repository_id }}
-          key: ${{ matrix.target }}
+          shared-key: release-${{ github.repository_id }}-${{ matrix.target }}
           cache-bin: false
           cache-on-failure: false
           save-if: ${{ needs.verify-release.outputs.cache-write == 'true' }}
@@ -132,7 +131,7 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.3.0
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.3.1
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
