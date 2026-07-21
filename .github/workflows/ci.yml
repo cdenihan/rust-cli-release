@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@v2.9.1
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --all-targets
+      - run: python3 -m unittest tests/render-installers.py tests/release-version.py
+      - run: sh tests/install-sh.sh
+
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - shell: pwsh
+        run: |
+          python scripts/render-installers.py --binary fixture --display-name Fixture --repository owner/fixture --environment-prefix FIXTURE --output "$env:RUNNER_TEMP/installers"
+          $env:FIXTURE_INSTALLER_SOURCE_ONLY = '1'
+          . "$env:RUNNER_TEMP/installers/install.ps1"
+          if ((Get-CliArtifact 'AMD64') -ne 'fixture-windows-x86_64.exe') { throw 'x86 artifact mismatch' }
+          if ((Get-CliArtifact 'ARM64') -ne 'fixture-windows-aarch64.exe') { throw 'ARM64 artifact mismatch' }
+
+  workflow-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: raven-actions/actionlint@v2.2.1

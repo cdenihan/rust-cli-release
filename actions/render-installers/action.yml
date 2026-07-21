@@ -1,0 +1,35 @@
+name: Render Rust CLI installers
+description: Render branded POSIX and PowerShell installers
+inputs:
+  binary-name:
+    description: Installed executable name without .exe
+    required: true
+  display-name:
+    description: Human-readable product name
+    required: true
+  repository:
+    description: GitHub owner/repository containing releases
+    required: true
+  environment-prefix:
+    description: Uppercase prefix for installer environment variables
+    required: true
+  output-directory:
+    description: Directory to receive install.sh and install.ps1
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RCR_BINARY: ${{ inputs.binary-name }}
+        RCR_DISPLAY: ${{ inputs.display-name }}
+        RCR_REPOSITORY: ${{ inputs.repository }}
+        RCR_PREFIX: ${{ inputs.environment-prefix }}
+        RCR_OUTPUT: ${{ inputs.output-directory }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/../../scripts/render-installers.py" \
+          --binary "$RCR_BINARY" \
+          --display-name "$RCR_DISPLAY" \
+          --repository "$RCR_REPOSITORY" \
+          --environment-prefix "$RCR_PREFIX" \
+          --output "$RCR_OUTPUT"
