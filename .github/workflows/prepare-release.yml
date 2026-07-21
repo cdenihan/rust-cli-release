@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v7.0.0
         with:
           repository: cdenihan/rust-cli-release
-          ref: v1.0.0
+          ref: v1.0.1
           token: ${{ secrets.dependency_token }}
           path: .rust-cli-release
 
@@ -136,10 +136,6 @@ jobs:
 
       - name: Dispatch build and publish workflow
         env:
-          BINARY_NAME: ${{ inputs.binary-name }}
-          CARGO_PACKAGE: ${{ inputs.cargo-package }}
-          DISPLAY_NAME: ${{ inputs.display-name }}
-          ENVIRONMENT_PREFIX: ${{ inputs.environment-prefix }}
           GH_TOKEN: ${{ github.token }}
           PUBLISH_WORKFLOW: ${{ inputs.publish-workflow }}
           RELEASE_COMMIT: ${{ steps.commit.outputs.commit }}
@@ -150,11 +146,7 @@ jobs:
           gh workflow run "$PUBLISH_WORKFLOW" --ref "$RELEASE_TAG" \
             -f "version=${RELEASE_VERSION}" \
             -f "tag=${RELEASE_TAG}" \
-            -f "commit=${RELEASE_COMMIT}" \
-            -f "binary_name=${BINARY_NAME}" \
-            -f "display_name=${DISPLAY_NAME}" \
-            -f "cargo_package=${CARGO_PACKAGE}" \
-            -f "environment_prefix=${ENVIRONMENT_PREFIX}"
+            -f "commit=${RELEASE_COMMIT}"
 
       - name: Delete unused reserved tag
         if: failure() && steps.release.outputs.tag != ''
