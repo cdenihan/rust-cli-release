@@ -12,16 +12,18 @@ usage() {
 Install $DISPLAY_NAME on Linux or macOS.
 
 Usage:
-  install.sh [--version VERSION] [--install-dir DIRECTORY]
+  install.sh [--version VERSION] [--install-dir DIRECTORY] [--libc LIBC]
 
 Options:
   --version VERSION        Release tag (default: latest)
   --install-dir DIRECTORY  Destination directory (default: \$HOME/.local/bin)
+  --libc LIBC              Linux runtime: musl (default) or gnu
   -h, --help               Show this help
 
 Environment:
   ${ENV_PREFIX}_VERSION             Alternative to --version
   ${ENV_PREFIX}_INSTALL_DIR         Alternative to --install-dir
+  ${ENV_PREFIX}_LIBC                Alternative to --libc
   ${ENV_PREFIX}_REPOSITORY          GitHub owner/repository (default: $DEFAULT_REPOSITORY)
   ${ENV_PREFIX}_RELEASE_BASE_URL    Release base URL for mirrors or testing
 EOF
@@ -57,24 +59,10 @@ normalize_arch() {
     esac
 }
 
-detect_libc() {
-    if command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; then
-        printf '%s\n' "musl"
-        return
-    fi
-    for loader in /lib/ld-musl-*.so.1 /usr/lib/ld-musl-*.so.1; do
-        if [ -e "$loader" ]; then
-            printf '%s\n' "musl"
-            return
-        fi
-    done
-    printf '%s\n' "gnu"
-}
-
 artifact_for() {
     os=$1
     arch=$2
-    libc_kind=${3:-gnu}
+    libc_kind=${3:-musl}
     case "$os:$arch:$libc_kind" in
         Linux:x86_64:gnu) printf '%s\n' "$PROGRAM-linux-x86_64" ;;
         Linux:x86_64:musl) printf '%s\n' "$PROGRAM-linux-x86_64-musl" ;;
@@ -150,17 +138,25 @@ verify_binary_version() {
 main() {
     version=$(environment_value VERSION)
     install_dir=$(environment_value INSTALL_DIR)
+    libc_kind=$(environment_value LIBC)
     version=${version:-latest}
     install_dir=${install_dir:-"${HOME:?HOME is not set}/.local/bin"}
+    libc_kind=${libc_kind:-musl}
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --version) [ "$#" -ge 2 ] || die "--version requires a value"; version=$2; shift 2 ;;
             --install-dir) [ "$#" -ge 2 ] || die "--install-dir requires a value"; install_dir=$2; shift 2 ;;
+            --libc) [ "$#" -ge 2 ] || die "--libc requires a value"; libc_kind=$2; shift 2 ;;
             -h | --help) usage; return ;;
             *) die "unknown option: $1" ;;
         esac
     done
+
+    case "$libc_kind" in
+        musl | gnu) ;;
+        *) die "unsupported libc: $libc_kind (expected musl or gnu)" ;;
+    esac
 
     version=$(normalize_version "$version")
     repository=$(environment_value REPOSITORY)
@@ -169,8 +165,6 @@ main() {
     release_base=${release_base:-"https://github.com/$repository/releases"}
     os=$(uname -s)
     arch=$(normalize_arch "$(uname -m)") || die "unsupported CPU architecture: $(uname -m)"
-    libc_kind=gnu
-    [ "$os" != Linux ] || libc_kind=$(detect_libc)
     artifact=$(artifact_for "$os" "$arch" "$libc_kind") ||
         die "unsupported platform: $os/$arch/$libc_kind"
 

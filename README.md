@@ -12,10 +12,10 @@ same crate provides runtime and build-script helpers:
 
 ```toml
 [dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.1.2" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.2.0" }
 
 [build-dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.1.2" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.2.0" }
 ```
 
 For a calendar-versioned application, `build.rs` becomes:
@@ -58,7 +58,7 @@ available for private forks or private Git dependencies.
 ```yaml
 jobs:
   ci:
-    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.1.2
+    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.2.0
     with:
       binary-name: my-cli
       display-name: My CLI
@@ -77,6 +77,12 @@ The publish caller exposes the dispatch inputs and passes them unchanged to
 `publish-release.yml`. The reusable workflow builds eight Windows, macOS, GNU
 Linux, and musl Linux artifacts, adds SHA-256 files and branded installers, and
 publishes the release only after verifying tag, commit, and compiled version.
+
+Generated POSIX installers use musl binaries by default on Linux to avoid a
+dependency on the host's glibc version. Consumers that specifically need the
+GNU build can pass `--libc gnu`; the branded `<PREFIX>_LIBC=gnu` environment
+variable provides the same override. Both GNU and musl artifacts continue to
+be built and published for x86_64 and ARM64.
 
 ## Optional private access
 

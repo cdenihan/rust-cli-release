@@ -90,7 +90,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
-      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.1.2
+      - uses: cdenihan/rust-cli-release/actions/render-installers@v1.2.0
         with:
           binary-name: ${{ inputs.binary-name }}
           display-name: ${{ inputs.display-name }}
