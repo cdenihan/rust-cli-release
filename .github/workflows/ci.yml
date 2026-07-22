@@ -16,7 +16,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
@@ -37,7 +37,7 @@ jobs:
   windows-installer:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - shell: pwsh
         run: |
           python scripts/render-installers.py --binary fixture --display-name Fixture --repository owner/fixture --environment-prefix FIXTURE --output "$env:RUNNER_TEMP/installers"
@@ -49,5 +49,5 @@ jobs:
   workflow-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: raven-actions/actionlint@v2.1.2

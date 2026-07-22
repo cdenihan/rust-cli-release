@@ -42,18 +42,18 @@ jobs:
     env:
       DEPENDENCY_TOKEN: ${{ secrets.dependency_token }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         with:
           ref: main
           fetch-depth: 0
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         if: env.DEPENDENCY_TOKEN != ''
         with:
           repository: cdenihan/rust-cli-release
           ref: v1.3.1
           token: ${{ secrets.dependency_token }}
           path: .rust-cli-release
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         if: env.DEPENDENCY_TOKEN == ''
         with:
           repository: cdenihan/rust-cli-release
