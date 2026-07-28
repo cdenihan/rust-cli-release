@@ -38,13 +38,26 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - shell: pwsh
+      - shell: powershell
         run: |
           python scripts/render-installers.py --binary fixture --display-name Fixture --repository owner/fixture --environment-prefix FIXTURE --output "$env:RUNNER_TEMP/installers"
           $env:FIXTURE_INSTALLER_SOURCE_ONLY = '1'
           . "$env:RUNNER_TEMP/installers/install.ps1"
           if ((Get-CliArtifact 'AMD64') -ne 'fixture-windows-x86_64.exe') { throw 'x86 artifact mismatch' }
           if ((Get-CliArtifact 'ARM64') -ne 'fixture-windows-aarch64.exe') { throw 'ARM64 artifact mismatch' }
+
+          $installDirectory = Join-Path $env:RUNNER_TEMP 'installer-upgrade'
+          New-Item -ItemType Directory -Path $installDirectory | Out-Null
+          $destination = Join-Path $installDirectory 'fixture.exe'
+          $staging = Join-Path $installDirectory '.fixture-install.exe'
+          Set-Content -LiteralPath $destination -Value 'old'
+          Set-Content -LiteralPath $staging -Value 'new'
+
+          Move-CliIntoPlace -Source $staging -Destination $destination
+
+          if ((Get-Content -LiteralPath $destination) -ne 'new') { throw 'upgrade did not replace destination' }
+          if (Test-Path -LiteralPath $staging) { throw 'upgrade left staging file behind' }
+          if (Get-ChildItem -LiteralPath $installDirectory -Filter '*.backup-*') { throw 'upgrade left backup file behind' }
 
   workflow-syntax:
     runs-on: ubuntu-latest

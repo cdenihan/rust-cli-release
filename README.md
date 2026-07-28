@@ -12,10 +12,10 @@ same crate provides runtime and build-script helpers:
 
 ```toml
 [dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.1" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.2" }
 
 [build-dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.1" }
+rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.2" }
 ```
 
 For a calendar-versioned application, `build.rs` becomes:
@@ -58,7 +58,7 @@ available for private forks or private Git dependencies.
 ```yaml
 jobs:
   ci:
-    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.3.1
+    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.3.2
     with:
       binary-name: my-cli
       display-name: My CLI

@@ -84,6 +84,23 @@ function Add-CliToUserPath {
     return $true
 }
 
+function Move-CliIntoPlace {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+    if (Test-Path -LiteralPath $Destination) {
+        $backup = "$Destination.backup-$([Guid]::NewGuid())"
+        try {
+            [IO.File]::Replace($Source, $Destination, $backup)
+        } finally {
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+        }
+    } else {
+        [IO.File]::Move($Source, $Destination)
+    }
+}
+
 function Install-Cli {
     param(
         [string]$RequestedVersion,
@@ -156,11 +173,7 @@ function Install-Cli {
         $staging = Join-Path $DestinationDirectory ".$Program-install-$([Guid]::NewGuid()).exe"
         try {
             Copy-Item -LiteralPath $binaryPath -Destination $staging -Force
-            if (Test-Path -LiteralPath $destination) {
-                [IO.File]::Replace($staging, $destination, $null)
-            } else {
-                [IO.File]::Move($staging, $destination)
-            }
+            Move-CliIntoPlace -Source $staging -Destination $destination
         } finally {
             Remove-Item -LiteralPath $staging -Force -ErrorAction SilentlyContinue
         }

@@ -35,6 +35,12 @@ class RenderInstallerTests(unittest.TestCase):
             self.assertIn('PROGRAM="xfer"', shell)
             self.assertIn('DEFAULT_REPOSITORY="cdenihan/XFER"', shell)
             self.assertIn('$Program = "xfer"', powershell)
+            self.assertIn(
+                "[IO.File]::Replace($Source, $Destination, $backup)", powershell
+            )
+            self.assertNotIn(
+                "[IO.File]::Replace($staging, $destination, $null)", powershell
+            )
             self.assertNotIn("__BINARY", shell + powershell)
 
     def test_rejects_injection_characters(self) -> None:
