@@ -84,9 +84,7 @@ impl SecureDir {
     /// narrower case of one JSON document, [`LockedJsonStore::update`] already
     /// locks around its own read-modify-write cycle.
     pub fn lock_exclusive(&self, name: &str) -> Result<LockGuard> {
-        let file = self.open_lock_file(name)?;
-        FileExt::lock_exclusive(&file)?;
-        Ok(LockGuard { file })
+        FileLock::acquire(&self.private_lock_path(name)?)
     }
 
     /// Like [`lock_exclusive`](Self::lock_exclusive), but reports `None`
@@ -95,7 +93,40 @@ impl SecureDir {
     /// Prefer this when a command should tell the user that a concurrent run is
     /// in progress rather than appear to hang.
     pub fn try_lock_exclusive(&self, name: &str) -> Result<Option<LockGuard>> {
-        let file = self.open_lock_file(name)?;
+        FileLock::try_acquire(&self.private_lock_path(name)?)
+    }
+
+    /// Creates the lock file, if it is absent, and makes it owner-only before
+    /// anyone waits on it.
+    fn private_lock_path(&self, name: &str) -> Result<PathBuf> {
+        self.ensure()?;
+        let path = self.path(name);
+        drop(open_lock_file(&path)?);
+        set_private_permissions(&path)?;
+        Ok(path)
+    }
+}
+
+/// An exclusive advisory lock on an arbitrary path.
+///
+/// [`SecureDir`] locks files it owns; this locks anywhere, for when the lock
+/// belongs beside the thing it guards — a build directory, a staging area —
+/// rather than in the application's own state directory. Permissions are left
+/// to the caller's umask, because such a file is not necessarily private.
+pub struct FileLock;
+
+impl FileLock {
+    /// Takes the lock, waiting for any other holder to release it.
+    pub fn acquire(path: &Path) -> Result<LockGuard> {
+        let file = open_lock_file(path)?;
+        FileExt::lock_exclusive(&file)?;
+        Ok(LockGuard { file })
+    }
+
+    /// Like [`acquire`](Self::acquire), but reports `None` immediately when
+    /// another process holds the lock instead of waiting.
+    pub fn try_acquire(path: &Path) -> Result<Option<LockGuard>> {
+        let file = open_lock_file(path)?;
         match FileExt::try_lock_exclusive(&file) {
             Ok(()) => Ok(Some(LockGuard { file })),
             // fs2 reports contention as a plain error, so a failed attempt is
@@ -103,19 +134,23 @@ impl SecureDir {
             Err(_) => Ok(None),
         }
     }
+}
 
-    fn open_lock_file(&self, name: &str) -> Result<fs::File> {
-        self.ensure()?;
-        let path = self.path(name);
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&path)?;
-        set_private_permissions(&path)?;
-        Ok(file)
+fn open_lock_file(path: &Path) -> Result<fs::File> {
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
     }
+    // Never truncate: the lock is the file's existence, not its contents, and
+    // truncating would disturb a holder that keeps state there.
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path)?;
+    Ok(file)
 }
 
 /// An exclusive advisory lock on a file in a [`SecureDir`].
@@ -253,6 +288,35 @@ mod lock_tests {
         let secure = SecureDir::discover("test", Some(temp.path().join("missing/nested"))).unwrap();
         let _guard = secure.lock_exclusive("sync.lock").unwrap();
         assert!(secure.root().is_dir());
+    }
+
+    #[test]
+    fn a_path_lock_excludes_a_second_holder() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("build/.lock");
+        let held = FileLock::acquire(&path).unwrap();
+        assert!(FileLock::try_acquire(&path).unwrap().is_none());
+        drop(held);
+        assert!(FileLock::try_acquire(&path).unwrap().is_some());
+    }
+
+    #[test]
+    fn a_path_lock_creates_missing_parent_directories() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("deeply/nested/build.lock");
+        let _guard = FileLock::acquire(&path).unwrap();
+        assert!(path.is_file());
+    }
+
+    /// The lock is the file's existence, so an existing one must survive being
+    /// locked rather than being truncated out from under its holder.
+    #[test]
+    fn a_path_lock_does_not_truncate_an_existing_file() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("build.lock");
+        std::fs::write(&path, b"owner=1234").unwrap();
+        let _guard = FileLock::acquire(&path).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"owner=1234");
     }
 
     #[cfg(unix)]
