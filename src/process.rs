@@ -10,10 +10,16 @@
 //! because consumers word their failures differently and a shared runner should
 //! not flatten that.
 
+// `CommandError` carries the rendered command line, the captured output, and
+// the working directory, which puts it over clippy's size threshold. Boxing it
+// would push an allocation into every consumer's `map_err`, all to save a copy
+// on a path that has just paid for a process spawn.
+#![allow(clippy::result_large_err)]
+
 use std::{
     ffi::OsStr,
     io,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, ExitStatus, Output, Stdio},
 };
 
@@ -23,11 +29,12 @@ pub struct CommandError {
     program: String,
     command: String,
     kind: CommandErrorKind,
-    /// The command asked to run in a directory that is not there. Recorded at
-    /// spawn time because the operating system reports it as the same
-    /// `NotFound` a missing executable produces, and by the time anyone reads
-    /// the error the two are indistinguishable.
-    missing_working_directory: bool,
+    /// The directory the command was told to run in, when that is what was
+    /// missing. Recorded at spawn time because the operating system reports it
+    /// as the same `NotFound` a missing executable produces, and by the time
+    /// anyone reads the error the two are indistinguishable. The path is kept,
+    /// not just the fact, so the message can say which directory to restore.
+    missing_working_directory: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -49,7 +56,8 @@ impl CommandError {
         &self.program
     }
 
-    /// The whole command line, quoted so it can be pasted into a shell.
+    /// The whole command line, quoted for reading back. See [`display`] for
+    /// what that does and does not promise.
     pub fn command(&self) -> &str {
         &self.command
     }
@@ -61,8 +69,26 @@ impl CommandError {
     /// Consumes the error to yield its kind, for consumers that need to take
     /// ownership of the underlying [`io::Error`] rather than borrow it — a
     /// crate folding this into its own error enum, typically.
+    ///
+    /// This drops the working-directory classification, so a caller that
+    /// re-interprets [`CommandErrorKind::Spawn`] would go back to reading every
+    /// `NotFound` as a missing program. Use [`into_parts`](Self::into_parts)
+    /// to keep it.
     pub fn into_kind(self) -> CommandErrorKind {
         self.kind
+    }
+
+    /// Consumes the error to yield its kind alongside the missing working
+    /// directory, if that is what the spawn tripped over.
+    ///
+    /// The owned counterpart of [`is_missing_working_directory`], for the same
+    /// consumers [`into_kind`](Self::into_kind) serves: the classification
+    /// cannot be recovered from the `io::Error` afterwards, so it has to travel
+    /// with it.
+    ///
+    /// [`is_missing_working_directory`]: Self::is_missing_working_directory
+    pub fn into_parts(self) -> (CommandErrorKind, Option<PathBuf>) {
+        (self.kind, self.missing_working_directory)
     }
 
     /// True when the program itself is not installed or not on `PATH`.
@@ -72,7 +98,7 @@ impl CommandError {
     /// `NotFound`, and answering `true` would send the user off to install a
     /// program they already have.
     pub fn is_not_found(&self) -> bool {
-        !self.missing_working_directory
+        self.missing_working_directory.is_none()
             && matches!(
                 &self.kind,
                 CommandErrorKind::Spawn(error) if error.kind() == io::ErrorKind::NotFound
@@ -82,7 +108,13 @@ impl CommandError {
     /// True when the command could not start because the directory it was
     /// told to run in does not exist.
     pub fn is_missing_working_directory(&self) -> bool {
-        self.missing_working_directory
+        self.missing_working_directory.is_some()
+    }
+
+    /// The directory the command was told to run in, when that is what was
+    /// missing — the path the user has to restore or correct.
+    pub fn missing_working_directory(&self) -> Option<&Path> {
+        self.missing_working_directory.as_deref()
     }
 
     pub fn status(&self) -> Option<ExitStatus> {
@@ -129,11 +161,14 @@ impl std::fmt::Display for CommandError {
                 "required command `{}` was not found on PATH",
                 self.program
             ),
-            CommandErrorKind::Spawn(_) if self.missing_working_directory => write!(
-                formatter,
-                "could not run {}: its working directory does not exist",
-                self.command
-            ),
+            CommandErrorKind::Spawn(_) if let Some(directory) = &self.missing_working_directory => {
+                write!(
+                    formatter,
+                    "could not run {}: its working directory {} does not exist",
+                    self.command,
+                    directory.display()
+                )
+            }
             CommandErrorKind::Spawn(error) => {
                 write!(formatter, "could not run {}: {error}", self.command)
             }
@@ -185,7 +220,7 @@ pub fn output(command: &mut Command, verbose: bool) -> CommandResult<Output> {
             stdout: String::from_utf8_lossy(&produced.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&produced.stderr).into_owned(),
         },
-        missing_working_directory: false,
+        missing_working_directory: None,
     })
 }
 
@@ -215,7 +250,7 @@ pub fn status(command: &mut Command, verbose: bool) -> CommandResult<()> {
             stdout: String::new(),
             stderr: String::new(),
         },
-        missing_working_directory: false,
+        missing_working_directory: None,
     })
 }
 
@@ -242,13 +277,31 @@ where
     )
 }
 
-/// The command line, quoted so that it round-trips through the host's shell.
+/// The command line, quoted so a person can read back what actually ran.
 ///
 /// Without quoting, a command carrying a message or a path with spaces reads
 /// back as a different command than the one that ran. Quoting is
 /// platform-specific because the conventions genuinely differ: POSIX shells
-/// group with single quotes, while `cmd.exe` and the Windows C runtime treat
-/// those as ordinary characters and group with double quotes.
+/// group with single quotes, while the Windows C runtime treats those as
+/// ordinary characters and groups with double quotes.
+///
+/// # What this does not promise
+///
+/// The result is faithful to the argument list, not universally pasteable:
+///
+/// - **Unix.** Arguments that are valid UTF-8 round-trip through any POSIX
+///   shell. Arguments that are not are rendered with ANSI-C `$'…'` quoting,
+///   which `bash` and `zsh` understand but `dash` does not. That is a
+///   deliberate trade: the alternative is losing the bytes entirely, which
+///   makes two different commands look identical.
+/// - **Windows.** Quoting follows the C runtime's argument-parsing rules, so
+///   the rendering reconstructs the same `argv` a program receives. It is not
+///   `cmd.exe`-safe: `cmd.exe` expands `%NAME%` even inside double quotes, so
+///   an argument containing one would be substituted rather than passed
+///   through.
+///
+/// Use it to tell the user what ran. Do not build a command line to execute
+/// from it — pass arguments to [`Command`] directly instead.
 pub fn display(command: &Command) -> String {
     std::iter::once(command.get_program())
         .chain(command.get_args())
@@ -268,10 +321,11 @@ fn is_bare(bytes: &[u8]) -> bool {
 fn spawn_error(command: &Command, rendered: String, error: io::Error) -> CommandError {
     // Checked here, while the command is still in hand: the OS reports an
     // absent working directory with the same `NotFound` as an absent program.
-    let missing_working_directory = error.kind() == io::ErrorKind::NotFound
-        && command
-            .get_current_dir()
-            .is_some_and(|directory| !directory.is_dir());
+    let missing_working_directory = (error.kind() == io::ErrorKind::NotFound)
+        .then(|| command.get_current_dir())
+        .flatten()
+        .filter(|directory| !directory.is_dir())
+        .map(Path::to_path_buf);
     CommandError {
         program: program_of(command),
         command: rendered,
@@ -433,12 +487,17 @@ mod tests {
             "git is installed; the directory is what is missing"
         );
         assert!(error.is_missing_working_directory());
+        assert_eq!(error.missing_working_directory(), Some(absent.as_path()));
         assert!(
-            error
-                .to_string()
-                .contains("working directory does not exist"),
-            "the message must point at the directory: {error}"
+            error.to_string().contains(&absent.display().to_string()),
+            "the message must name the directory to restore: {error}"
         );
+
+        // The classification has to survive the ownership transfer, or a
+        // consumer folding this into its own error enum loses the correction.
+        let (kind, missing) = error.into_parts();
+        assert!(matches!(kind, CommandErrorKind::Spawn(_)));
+        assert_eq!(missing.as_deref(), Some(absent.as_path()));
     }
 
     #[test]
