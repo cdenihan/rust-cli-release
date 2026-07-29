@@ -1,10 +1,10 @@
 [package]
-name = "rust-cli-release"
-version = "1.9.0"
+name = "rust-cli-toolkit"
+version = "2.0.0"
 edition = "2024"
 rust-version = "1.88"
-description = "Reusable self-update and release infrastructure for Rust CLIs"
-repository = "https://github.com/cdenihan/rust-cli-release"
+description = "Reusable distribution, update, and process infrastructure for Rust CLIs"
+repository = "https://github.com/cdenihan/rust-cli-toolkit"
 license = "MIT"
 publish = false
 

@@ -3,7 +3,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-TEMPORARY=$(mktemp -d "${TMPDIR:-/tmp}/rust-cli-release-installer.XXXXXX")
+TEMPORARY=$(mktemp -d "${TMPDIR:-/tmp}/rust-cli-toolkit-installer.XXXXXX")
 trap 'rm -rf "$TEMPORARY"' EXIT HUP INT TERM
 
 python3 "$ROOT/scripts/render-installers.py" \
@@ -13,8 +13,8 @@ python3 "$ROOT/scripts/render-installers.py" \
     --environment-prefix FIXTURE \
     --output "$TEMPORARY/rendered"
 
-RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=1
-export RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY
+RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=1
+export RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY
 . "$TEMPORARY/rendered/install.sh"
 
 assert_equal() {
@@ -50,7 +50,7 @@ printf '%s  %s\n' "$checksum" "$artifact" > "$binary.sha256"
 
 FIXTURE_RELEASE_BASE_URL="file://$TEMPORARY/release" \
 FIXTURE_INSTALL_DIR="$TEMPORARY/install" \
-RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=0 \
+RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=0 \
 sh "$TEMPORARY/rendered/install.sh" >/dev/null
 assert_equal "fixture 9.9.9" "$("$TEMPORARY/install/fixture" --version)" "installed binary"
 
@@ -77,7 +77,7 @@ printf '%s  %s\n' "$gnu_checksum" "$gnu_artifact" > "$gnu_binary.sha256"
 
 PATH="$TEMPORARY/fake-linux-bin:$PATH" \
 FIXTURE_RELEASE_BASE_URL="file://$TEMPORARY/release" \
-RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=0 \
+RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=0 \
 sh "$TEMPORARY/rendered/install.sh" \
     --install-dir "$TEMPORARY/install-linux-default" >/dev/null
 assert_equal "fixture 7.7.7" \
@@ -85,7 +85,7 @@ assert_equal "fixture 7.7.7" \
 
 PATH="$TEMPORARY/fake-linux-bin:$PATH" \
 FIXTURE_RELEASE_BASE_URL="file://$TEMPORARY/release" \
-RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=0 \
+RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=0 \
 sh "$TEMPORARY/rendered/install.sh" \
     --libc gnu --install-dir "$TEMPORARY/install-gnu" >/dev/null
 assert_equal "fixture 8.8.8" \
@@ -95,12 +95,12 @@ PATH="$TEMPORARY/fake-linux-bin:$PATH" \
 FIXTURE_RELEASE_BASE_URL="file://$TEMPORARY/release" \
 FIXTURE_INSTALL_DIR="$TEMPORARY/install-gnu-env" \
 FIXTURE_LIBC=gnu \
-RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=0 \
+RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=0 \
 sh "$TEMPORARY/rendered/install.sh" >/dev/null
 assert_equal "fixture 8.8.8" \
     "$("$TEMPORARY/install-gnu-env/fixture" --version)" "GNU environment override"
 
-if RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=0 \
+if RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=0 \
     sh "$TEMPORARY/rendered/install.sh" --libc glibc >/dev/null 2>&1; then
     printf '%s\n' "FAIL: invalid libc was accepted" >&2
     exit 1
@@ -110,7 +110,7 @@ before=$(sha256_file "$TEMPORARY/install/fixture")
 printf '%064d  %s\n' 0 "$artifact" > "$binary.sha256"
 if FIXTURE_RELEASE_BASE_URL="file://$TEMPORARY/release" \
     FIXTURE_INSTALL_DIR="$TEMPORARY/install" \
-    RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY=0 \
+    RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY=0 \
     sh "$TEMPORARY/rendered/install.sh" >/dev/null 2>&1; then
     printf '%s\n' "FAIL: invalid checksum was accepted" >&2
     exit 1

@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use rust_cli_release::{ReleaseSpec, update_current};
+use rust_cli_toolkit::{ReleaseSpec, update_current};
 
 const RELEASE: ReleaseSpec = ReleaseSpec::new(
     "example-cli",

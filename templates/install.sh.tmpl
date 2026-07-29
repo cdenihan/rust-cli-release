@@ -201,7 +201,7 @@ main() {
 }
 
 source_only=$(environment_value INSTALLER_SOURCE_ONLY)
-source_only=${source_only:-${RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY:-0}}
+source_only=${source_only:-${RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY:-0}}
 if [ "$source_only" != "1" ]; then
     main "$@"
 fi

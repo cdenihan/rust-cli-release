@@ -1,6 +1,6 @@
-# rust-cli-release
+# rust-cli-toolkit
 
-`rust-cli-release` is an open-source distribution kit for Rust command-line
+`rust-cli-toolkit` is an open-source distribution kit for Rust command-line
 applications. It centralizes checksum-verified self-update, branded installers,
 cross-platform CI, calendar or manifest releases, native artifacts, and GitHub
 Release publication while each consumer owns its product commands.
@@ -12,20 +12,20 @@ same crate provides runtime and build-script helpers:
 
 ```toml
 [dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.2" }
+rust-cli-toolkit = { git = "https://github.com/cdenihan/rust-cli-toolkit", tag = "v2.0.0" }
 
 [build-dependencies]
-rust-cli-release = { git = "https://github.com/cdenihan/rust-cli-release", tag = "v1.3.2" }
+rust-cli-toolkit = { git = "https://github.com/cdenihan/rust-cli-toolkit", tag = "v2.0.0" }
 ```
 
 For a calendar-versioned application, `build.rs` becomes:
 
 ```rust
 fn main() {
-    rust_cli_release::emit_version_file(
+    rust_cli_toolkit::emit_version_file(
         "VERSION",
         "MY_CLI_SOURCE_VERSION",
-        rust_cli_release::VersionFormat::Calendar,
+        rust_cli_toolkit::VersionFormat::Calendar,
     )
     .expect("invalid release version");
 }
@@ -34,7 +34,7 @@ fn main() {
 The application defines its identity once and passes it to the updater:
 
 ```rust
-use rust_cli_release::ReleaseSpec;
+use rust_cli_toolkit::ReleaseSpec;
 
 const RELEASE: ReleaseSpec = ReleaseSpec::new(
     "my-cli",
@@ -44,7 +44,7 @@ const RELEASE: ReleaseSpec = ReleaseSpec::new(
     env!("MY_CLI_SOURCE_VERSION"),
 );
 
-let summary = rust_cli_release::update_current(&RELEASE, "latest", false)?;
+let summary = rust_cli_toolkit::update_current(&RELEASE, "latest", false)?;
 ```
 
 See `examples/minimal.rs` for a complete Clap command.
@@ -56,7 +56,7 @@ default, or an explicit override for tests and `--config-dir`-style flags),
 with atomic writes and 0600/0700 permissions on Unix:
 
 ```rust
-use rust_cli_release::SecureDir;
+use rust_cli_toolkit::SecureDir;
 
 let dir = SecureDir::discover("my-cli", None)?;
 dir.write_private("identity.key", &secret_bytes)?;
@@ -67,7 +67,7 @@ top of a `SecureDir` for state that multiple invocations may touch
 concurrently (peer lists, sync cursors, and similar small documents):
 
 ```rust
-use rust_cli_release::{LockedJsonStore, SecureDir};
+use rust_cli_toolkit::{LockedJsonStore, SecureDir};
 
 let store: LockedJsonStore<MyState> =
     LockedJsonStore::new(SecureDir::discover("my-cli", None)?, "state.json");
@@ -105,13 +105,13 @@ available for private forks or private Git dependencies.
 ```yaml
 jobs:
   ci:
-    uses: cdenihan/rust-cli-release/.github/workflows/rust-ci.yml@v1.3.2
+    uses: cdenihan/rust-cli-toolkit/.github/workflows/rust-ci.yml@v2.0.0
     with:
       binary-name: my-cli
       display-name: My CLI
       environment-prefix: MY_CLI
     secrets:
-      dependency_token: ${{ secrets.RUST_CLI_RELEASE_TOKEN }}
+      dependency_token: ${{ secrets.RUST_CLI_TOOLKIT_TOKEN }}
 ```
 
 The prepare caller runs on the trigger chosen by the product repository and
@@ -149,7 +149,7 @@ all credential setup steps are skipped when it is unset.
 For a private fork or other private Git dependency, create a fine-grained token
 restricted to the required repositories with read-only Contents permission.
 Store it in the consumer as an Actions secret named
-`RUST_CLI_RELEASE_TOKEN` and pass it as `dependency_token`. Temporary Git URL
+`RUST_CLI_TOOLKIT_TOKEN` and pass it as `dependency_token`. Temporary Git URL
 credentials are removed after each job. If Dependabot needs the same private
 access, store the token separately as a Dependabot secret and configure a `git`
 registry in the consumer's Dependabot file.

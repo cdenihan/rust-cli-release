@@ -49,16 +49,16 @@ jobs:
       - uses: actions/checkout@v7.0.1
         if: env.DEPENDENCY_TOKEN != ''
         with:
-          repository: cdenihan/rust-cli-release
-          ref: v1.3.2
+          repository: cdenihan/rust-cli-toolkit
+          ref: v2.0.0
           token: ${{ secrets.dependency_token }}
-          path: .rust-cli-release
+          path: .rust-cli-toolkit
       - uses: actions/checkout@v7.0.1
         if: env.DEPENDENCY_TOKEN == ''
         with:
-          repository: cdenihan/rust-cli-release
-          ref: v1.3.2
-          path: .rust-cli-release
+          repository: cdenihan/rust-cli-toolkit
+          ref: v2.0.0
+          path: .rust-cli-toolkit
 
       - name: Resolve and reserve release version
         id: release
@@ -77,7 +77,7 @@ jobs:
                   gh api --paginate \
                     "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v${release_date}." \
                     --jq '.[].ref' |
-                    sh .rust-cli-release/scripts/next-release-version.sh "$release_date"
+                    sh .rust-cli-toolkit/scripts/next-release-version.sh "$release_date"
                 )"
                 if gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
                   -f "ref=refs/tags/v${release_version}" \
@@ -116,7 +116,7 @@ jobs:
           VERSION_FILE: ${{ inputs.version-file }}
         shell: bash
         run: |
-          python3 .rust-cli-release/scripts/set-release-version.py "$RELEASE_VERSION" \
+          python3 .rust-cli-toolkit/scripts/set-release-version.py "$RELEASE_VERSION" \
             --package "$CARGO_PACKAGE" --version-file "$VERSION_FILE"
           cargo metadata --locked --no-deps --format-version 1 >/dev/null
 
