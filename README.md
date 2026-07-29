@@ -80,6 +80,22 @@ store.update(|state| {
 `update` takes an exclusive advisory lock for the full load-modify-save cycle,
 so concurrent processes serialize instead of racing.
 
+When a whole operation needs to be serialized rather than a single document —
+a sync, a migration, a multi-file rewrite — take the lock directly:
+
+```rust
+let dir = SecureDir::discover("my-cli", None)?;
+match dir.try_lock_exclusive("sync.lock")? {
+    Some(_guard) => { /* held until _guard drops */ }
+    None => println!("another run is already in progress"),
+}
+```
+
+`lock_exclusive` waits for the current holder; `try_lock_exclusive` reports
+`None` immediately so a command can say a concurrent run is in progress instead
+of appearing to hang. The operating system releases the lock if the process
+exits or is killed, so an interrupted run never leaves a stale lock behind.
+
 ## Reusable workflows
 
 Consumer repositories need three thin callers. Pin the same immutable tag used

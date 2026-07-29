@@ -1,5 +1,6 @@
-//! A private, OS-appropriate application data directory with atomic writes
-//! and advisory-locked JSON state, factored out of per-consumer duplication.
+//! A private, OS-appropriate application data directory with atomic writes,
+//! advisory-locked JSON state, and standalone locks for whole operations,
+//! factored out of per-consumer duplication.
 
 use std::{
     fs::{self, OpenOptions},
@@ -73,6 +74,63 @@ impl SecureDir {
             Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
             Err(error) => Err(Error::Io(error.error)),
         }
+    }
+
+    /// Takes an exclusive advisory lock called `name`, waiting for any other
+    /// holder to release it.
+    ///
+    /// Use this to serialize a whole operation — a sync, a migration, a
+    /// multi-file rewrite — rather than an individual file write. For the
+    /// narrower case of one JSON document, [`LockedJsonStore::update`] already
+    /// locks around its own read-modify-write cycle.
+    pub fn lock_exclusive(&self, name: &str) -> Result<LockGuard> {
+        let file = self.open_lock_file(name)?;
+        FileExt::lock_exclusive(&file)?;
+        Ok(LockGuard { file })
+    }
+
+    /// Like [`lock_exclusive`](Self::lock_exclusive), but reports `None`
+    /// immediately when another process holds the lock instead of waiting.
+    ///
+    /// Prefer this when a command should tell the user that a concurrent run is
+    /// in progress rather than appear to hang.
+    pub fn try_lock_exclusive(&self, name: &str) -> Result<Option<LockGuard>> {
+        let file = self.open_lock_file(name)?;
+        match FileExt::try_lock_exclusive(&file) {
+            Ok(()) => Ok(Some(LockGuard { file })),
+            // fs2 reports contention as a plain error, so a failed attempt is
+            // reported as "unavailable" rather than propagated.
+            Err(_) => Ok(None),
+        }
+    }
+
+    fn open_lock_file(&self, name: &str) -> Result<fs::File> {
+        self.ensure()?;
+        let path = self.path(name);
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&path)?;
+        set_private_permissions(&path)?;
+        Ok(file)
+    }
+}
+
+/// An exclusive advisory lock on a file in a [`SecureDir`].
+///
+/// The lock is released when the guard is dropped, and the operating system
+/// releases it if the process exits or is killed, so an interrupted run never
+/// leaves a stale lock behind.
+#[derive(Debug)]
+pub struct LockGuard {
+    file: fs::File,
+}
+
+impl Drop for LockGuard {
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self.file);
     }
 }
 
@@ -151,18 +209,63 @@ impl<T: Default + Serialize + DeserializeOwned> LockedJsonStore<T> {
         self.dir.write_private(&self.file_name, &encoded)
     }
 
-    fn lock(&self) -> Result<fs::File> {
-        self.dir.ensure()?;
-        let path = self.dir.path(&self.lock_name);
-        let lock = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&path)?;
-        set_private_permissions(&path)?;
-        FileExt::lock_exclusive(&lock)?;
-        Ok(lock)
+    fn lock(&self) -> Result<LockGuard> {
+        self.dir.lock_exclusive(&self.lock_name)
+    }
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn dir() -> (tempfile::TempDir, SecureDir) {
+        let temp = tempdir().unwrap();
+        let secure = SecureDir::discover("test", Some(temp.path().join("store"))).unwrap();
+        (temp, secure)
+    }
+
+    #[test]
+    fn an_exclusive_lock_excludes_a_second_holder() {
+        let (_temp, secure) = dir();
+        let held = secure.lock_exclusive("sync.lock").unwrap();
+        assert!(
+            secure.try_lock_exclusive("sync.lock").unwrap().is_none(),
+            "a second attempt must not succeed while the first is held"
+        );
+        drop(held);
+        assert!(
+            secure.try_lock_exclusive("sync.lock").unwrap().is_some(),
+            "dropping the guard releases the lock"
+        );
+    }
+
+    #[test]
+    fn distinct_names_do_not_contend() {
+        let (_temp, secure) = dir();
+        let _first = secure.lock_exclusive("one.lock").unwrap();
+        assert!(secure.try_lock_exclusive("two.lock").unwrap().is_some());
+    }
+
+    #[test]
+    fn locking_creates_the_directory_on_demand() {
+        let temp = tempdir().unwrap();
+        let secure = SecureDir::discover("test", Some(temp.path().join("missing/nested"))).unwrap();
+        let _guard = secure.lock_exclusive("sync.lock").unwrap();
+        assert!(secure.root().is_dir());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_lock_file_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_temp, secure) = dir();
+        let _guard = secure.lock_exclusive("sync.lock").unwrap();
+        let mode = std::fs::metadata(secure.path("sync.lock"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 }
 
