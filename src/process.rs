@@ -270,17 +270,23 @@ mod tests {
 
     #[test]
     fn a_failing_program_carries_its_exit_status_and_stderr() {
-        let mut command = Command::new("sh");
-        command.args(["-c", "echo trouble >&2; exit 3"]);
+        let mut command = Command::new("git");
+        command.arg("not-a-git-subcommand");
         let error = output(&mut command, false).unwrap_err();
 
         assert!(!error.is_not_found());
-        assert_eq!(error.status().and_then(|status| status.code()), Some(3));
-        assert_eq!(error.message(), "trouble");
+        assert!(error.status().is_some_and(|status| !status.success()));
+        assert!(
+            error.message().contains("not-a-git-subcommand"),
+            "git's own complaint must survive: {}",
+            error.message()
+        );
     }
 
     /// Some programs report their failure on stdout, so an error that only
-    /// reads stderr would show the user an empty explanation.
+    /// reads stderr would show the user an empty explanation. Needs a shell to
+    /// arrange, so it is checked where one is guaranteed.
+    #[cfg(unix)]
     #[test]
     fn stdout_is_used_when_stderr_is_silent() {
         let mut command = Command::new("sh");
@@ -292,18 +298,19 @@ mod tests {
 
     #[test]
     fn a_successful_program_returns_its_output() {
-        let mut command = Command::new("sh");
-        command.args(["-c", "echo hello"]);
+        let mut command = Command::new("git");
+        command.arg("--version");
         let produced = output(&mut command, false).unwrap();
-        assert_eq!(String::from_utf8_lossy(&produced.stdout).trim(), "hello");
+        assert!(String::from_utf8_lossy(&produced.stdout).starts_with("git version"));
     }
 
     #[test]
     fn status_reports_failure_without_capturing() {
-        let mut command = Command::new("sh");
-        command.args(["-c", "exit 7"]);
+        let mut command = Command::new("git");
+        command.arg("not-a-git-subcommand");
         let error = status(&mut command, false).unwrap_err();
-        assert_eq!(error.status().and_then(|value| value.code()), Some(7));
+        assert!(error.status().is_some_and(|status| !status.success()));
+        // Nothing was captured, so there is no explanation to report.
         assert_eq!(error.message(), "");
     }
 
@@ -325,7 +332,7 @@ mod tests {
 
     #[test]
     fn availability_distinguishes_real_programs_from_invented_ones() {
-        assert!(available("sh"));
+        assert!(available("git"));
         assert!(!available("wombat-cc-definitely-not-a-real-program"));
     }
 
