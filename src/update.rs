@@ -49,6 +49,31 @@ pub struct UpdateSummary {
     pub status: &'static str,
 }
 
+impl UpdateSummary {
+    /// One line a person can read, for the common case where a CLI prints the
+    /// outcome rather than piping it somewhere. The serialized form stays
+    /// available for `--json`.
+    #[must_use]
+    pub fn describe(&self, display_name: &str) -> String {
+        let executable = self.executable.display();
+        match (self.status, self.installed_version.as_deref()) {
+            ("current", _) => format!(
+                "{display_name} {} is already up to date at {executable}",
+                self.previous_version
+            ),
+            // Windows cannot replace a running executable, so the swap is
+            // handed to a helper that waits for this process to exit.
+            ("scheduled", _) | (_, None) => format!(
+                "Update staged for {executable}; {display_name} is replaced once this process exits."
+            ),
+            (_, Some(installed)) => format!(
+                "Updated {display_name} {} -> {installed} at {executable}",
+                self.previous_version
+            ),
+        }
+    }
+}
+
 pub fn update_current(
     spec: &ReleaseSpec,
     requested_version: &str,
@@ -529,6 +554,28 @@ mod tests {
 
     const SPEC: ReleaseSpec =
         ReleaseSpec::new("fixture", "Fixture", "owner/fixture", "FIXTURE", "1.0.0");
+
+    #[test]
+    fn every_update_status_describes_itself() {
+        let summary = |status, installed: Option<&str>| UpdateSummary {
+            previous_version: "1.0.0".into(),
+            installed_version: installed.map(Into::into),
+            executable: PathBuf::from("/bin/fixture"),
+            status,
+        };
+        assert_eq!(
+            summary("current", Some("1.0.0")).describe("Fixture"),
+            "Fixture 1.0.0 is already up to date at /bin/fixture"
+        );
+        assert_eq!(
+            summary("updated", Some("1.1.0")).describe("Fixture"),
+            "Updated Fixture 1.0.0 -> 1.1.0 at /bin/fixture"
+        );
+        assert_eq!(
+            summary("scheduled", None).describe("Fixture"),
+            "Update staged for /bin/fixture; Fixture is replaced once this process exits."
+        );
+    }
 
     #[test]
     fn release_base_requires_https_or_local_fixture() {
