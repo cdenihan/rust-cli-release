@@ -49,6 +49,37 @@ let summary = rust_cli_release::update_current(&RELEASE, "latest", false)?;
 
 See `examples/minimal.rs` for a complete Clap command.
 
+## Secure application data
+
+`SecureDir` resolves a private, owner-only directory (`~/.<app_name>` by
+default, or an explicit override for tests and `--config-dir`-style flags),
+with atomic writes and 0600/0700 permissions on Unix:
+
+```rust
+use rust_cli_release::SecureDir;
+
+let dir = SecureDir::discover("my-cli", None)?;
+dir.write_private("identity.key", &secret_bytes)?;
+```
+
+`LockedJsonStore<T>` layers a lock-guarded, atomically-persisted JSON value on
+top of a `SecureDir` for state that multiple invocations may touch
+concurrently (peer lists, sync cursors, and similar small documents):
+
+```rust
+use rust_cli_release::{LockedJsonStore, SecureDir};
+
+let store: LockedJsonStore<MyState> =
+    LockedJsonStore::new(SecureDir::discover("my-cli", None)?, "state.json");
+store.update(|state| {
+    state.last_sync = now();
+    Ok(())
+})?;
+```
+
+`update` takes an exclusive advisory lock for the full load-modify-save cycle,
+so concurrent processes serialize instead of racing.
+
 ## Reusable workflows
 
 Consumer repositories need three thin callers. Pin the same immutable tag used
