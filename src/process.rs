@@ -53,6 +53,13 @@ impl CommandError {
         &self.kind
     }
 
+    /// Consumes the error to yield its kind, for consumers that need to take
+    /// ownership of the underlying [`io::Error`] rather than borrow it — a
+    /// crate folding this into its own error enum, typically.
+    pub fn into_kind(self) -> CommandErrorKind {
+        self.kind
+    }
+
     /// True when the program is not installed or not on `PATH`.
     pub fn is_not_found(&self) -> bool {
         matches!(
