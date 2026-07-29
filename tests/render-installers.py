@@ -57,7 +57,7 @@ class RenderInstallerTests(unittest.TestCase):
                 "--environment-prefix",
                 "BAD",
                 "--output",
-                "/tmp/unused-rust-cli-release-test",
+                "/tmp/unused-rust-cli-toolkit-test",
             ],
             capture_output=True,
         )

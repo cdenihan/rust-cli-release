@@ -188,7 +188,7 @@ function Install-Cli {
     }
 }
 
-if ((Get-CliEnvironmentValue "INSTALLER_SOURCE_ONLY") -ne "1" -and $env:RUST_CLI_RELEASE_INSTALLER_SOURCE_ONLY -ne "1") {
+if ((Get-CliEnvironmentValue "INSTALLER_SOURCE_ONLY") -ne "1" -and $env:RUST_CLI_TOOLKIT_INSTALLER_SOURCE_ONLY -ne "1") {
     Install-Cli `
         -RequestedVersion $Version `
         -DestinationDirectory $InstallDir `

@@ -332,10 +332,10 @@ fn download_file(url: &str, destination: &Path) -> Result<()> {
                 "-NoProfile",
                 "-NonInteractive",
                 "-Command",
-                "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri $env:RUST_CLI_RELEASE_UPDATE_URL -OutFile $env:RUST_CLI_RELEASE_UPDATE_DEST -UseBasicParsing",
+                "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri $env:RUST_CLI_TOOLKIT_UPDATE_URL -OutFile $env:RUST_CLI_TOOLKIT_UPDATE_DEST -UseBasicParsing",
             ])
-            .env("RUST_CLI_RELEASE_UPDATE_URL", url)
-            .env("RUST_CLI_RELEASE_UPDATE_DEST", destination)
+            .env("RUST_CLI_TOOLKIT_UPDATE_URL", url)
+            .env("RUST_CLI_TOOLKIT_UPDATE_DEST", destination)
             .status()
             .map_err(|error| {
                 Error::Configuration(format!(
