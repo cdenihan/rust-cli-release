@@ -2,10 +2,12 @@
 
 mod build_support;
 mod error;
+pub mod process;
 mod secure_store;
 mod update;
 
 pub use build_support::{VersionFormat, cargo_version, emit_version_file, validate_version};
 pub use error::{Error, Result};
-pub use secure_store::{LockGuard, LockedJsonStore, SecureDir};
+pub use process::{CommandError, CommandErrorKind};
+pub use secure_store::{FileLock, LockGuard, LockedJsonStore, SecureDir};
 pub use update::{ReleaseSpec, UpdateSummary, compare_versions, update_current};
